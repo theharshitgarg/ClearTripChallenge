@@ -1,0 +1,170 @@
+<html>
+  <head>
+    <title>HakcerNews</title>
+    <meta></meta>
+    <script type="text/javascript">
+
+    </script>
+    <link rel="stylesheet" type="text/css" href="./static/css/custom.css"
+  </head>
+  <body>
+    <div id="navigation" class="header-section">
+      <nav>
+        <ul style="inline" class="top-navigation">
+            <li><a href="#">Home</a></li>
+            <li><a href="#">About Us</a></li>
+            <li><a href="#">Latest</a></li>
+            <li><a href="#">Contact Us</a></li>
+        <ul>
+      </nav>
+    </div>
+
+    <div id="selector-section" style="width: 100%">
+      <div id="search-bar">
+        <form id="search-form">
+          <input type="text" id="search-text" placeholder="Search" list="names-list"
+          class="serach-bar" autocomplete="on" onkeyup="filter_page()"></input>
+          <datalist id="names-list"></datalist>
+        </form>
+      </div>
+
+    </div>
+
+    <div class="" id="main-content">
+      <div id="news-items">
+      </div>
+    </div>
+
+    <div id="pagination-section" style="position: fixed; bottom: 0; width: 100%;">
+      <ul class="pagination" id="page-list">
+      </ul>
+    </div>
+
+    <div class="footer-section">
+
+    </div>
+  </body>
+  <script type="text/javascript">
+    var db;
+    function filter_page(){
+
+      var search_text = document.getElementById("serach-text").value;
+      var news_holder =  document.getElementById("news-items");
+      var item_list =  news_holder.getElementsByTagName("div");
+      
+      for(item in item_list){
+        alert(item_list[item]);
+        var text1 = item_list[item].childNodes[0];
+        var text2 = item_list[item].childNodes[1];
+        if(text2.innerHTML.indexOf(search_text) > -1){
+          item_list[item].style.display = "";
+        }else {
+          item_list[item].style.display = "none";
+        }
+      }
+    }
+
+    function indexedDBOk() {
+        return "indexedDB" in window;
+    }
+
+    function create_item(response_json){
+      var news_item = document.createElement("div");
+      news_item.setAttribute("id", response_json["id"]);
+      var news_item_text = document.createElement("p");
+      news_item_text.classList.add("news_item");
+      var title_a = document.createElement("a");
+      news_item_text.appendChild(title_a);
+      title_a.setAttribute("href", response_json["url"]);
+      title_a.setAttribute("target", "_blank");
+      var start_index = response_json["url"].indexOf("://")+3;
+      var url_domain = response_json["url"].slice(start_index,
+                      response_json["url"].indexOf("/", start_index));
+      title_a.appendChild(document.createTextNode(response_json["title"] + " (" +
+                                                  url_domain + ")"));
+      news_item.appendChild(news_item_text);
+      news_item.classList.add("news-item");
+      var sub_title = document.createElement("p");
+      sub_title.innerHTML = response_json["num_points"] + " points by "+
+                            response_json["author"] + " | hide | " +
+                            response_json["num_comments"] + " comments";
+
+      news_item.appendChild(sub_title);
+
+      return news_item;
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+
+        //No support? Go in the corner and pout.
+        if(!indexedDBOk) return;
+        var news_id = document.getElementById("news-items");
+        var pg_id = document.getElementById("page-list");
+        var response_json = {};
+        var url = "http://starlord.hackerearth.com/cleartrip/hackernews";
+        var request = new XMLHttpRequest();
+        var names_list = document.getElementById("names-list");
+        request.onreadystatechange = function () {
+            if(request.readyState !=4 || request.status != 200) return;
+            console.log(JSON.parse(request.responseText));
+            response_json = JSON.parse(request.responseText);
+            for(var i = 1; i < response_json.length; i++){
+              var new_item = create_item(response_json[i]);
+              news_id.appendChild(new_item);
+              var datalist_option = document.createElement("option");
+              datalist_option.value = response_json[i]["author"];
+              names_list.appendChild(datalist_option);
+              if(i%20==0){
+                  var pg_item = document.createElement("li");
+                  var pg_item_ac = document.createElement("a");
+                  pg_item_ac.setAttribute("href", "#");
+                  pg_item.appendChild(pg_item_ac);
+                  pg_item_ac.appendChild(document.createTextNode(i/20));
+                  pg_id.appendChild(pg_item);
+              }
+            }
+            var openRequest = indexedDB.open("newsdb_v1", 1);
+
+            openRequest.onupgradeneeded = function(event) {
+                var thisDB = event.target.result;
+
+                if(!thisDB.objectStoreNames.contains("news1")) {
+                    thisDB.createObjectStore("news1", { autoIncrement: true });
+                }
+            }
+
+            openRequest.onsuccess = function(event) {
+                console.log("running onsuccess");
+
+                db = event.target.result;
+                console.log("res ------");
+                console.log(response_json);
+                var transaction = db.transaction(["news1"], "readwrite");
+                var store = transaction.objectStore("news1");
+                console.log(store);
+                for(var i = 1; i < response_json.length; i++){
+                  console.log(i);
+                  console.log(response_json[i]);
+                  var request = store.add(response_json[i]);
+                }
+
+                request.onerror = function(e) {
+                    console.log("Error", e.target.error.name);
+                }
+
+                request.onsuccess = function(e) {
+                    console.log("News Item added.");
+                }
+            }
+
+            openRequest.onerror = function(e) {
+                //Do something for the error
+                console.log("Error Happened.");
+            }
+        };
+        request.open("GET", url);
+        request.send();
+
+    },false);
+  </script>
+</html>
